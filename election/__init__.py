@@ -1,5 +1,6 @@
 import json
 import os
+import logging
 from concurrent import futures
 from datetime import datetime
 
@@ -15,14 +16,15 @@ from sqlalchemy.orm import sessionmaker
 
 load_dotenv()
 
+logging.basicConfig(level=logging.DEBUG,
+                    format='%(asctime)s - %(name)s - '
+                           '%(levelname)s - %(message)s')
+
 engine = create_engine(os.getenv("DB_ENGINE"))
 Session = sessionmaker(bind=engine)
 
 print(os.getenv("RABBITMQ_USERNAME"), os.getenv("RABBITMQ_PASSWORD"))
 credentials = pika.PlainCredentials(username=os.getenv("RABBITMQ_USERNAME"), password=os.getenv("RABBITMQ_PASSWORD"))
-
-
-
 
 
 class ElectionService(election_pb2_grpc.ElectionServiceServicer):
@@ -184,6 +186,7 @@ def serve():
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     election_pb2_grpc.add_ElectionServiceServicer_to_server(ElectionService(), server)
     server.add_insecure_port(f'[::]:{os.getenv("GRPC_PORT")}')
+    logging.info(f"start on {os.getenv('GRPC_PORT')}")
     print("start on", os.getenv("GRPC_PORT"))
     server.start()
     server.wait_for_termination()
