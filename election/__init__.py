@@ -1,18 +1,17 @@
 import json
-import os
 import logging
+import os
 from concurrent import futures
 from datetime import datetime
 
-from dotenv import load_dotenv
 import election_service.election_grpc_pb2 as election_pb2
 import election_service.election_grpc_pb2_grpc as election_pb2_grpc
 import grpc
 import pika
-from orm_models import Election, Candidate, Capybara, User, Vote
+from dotenv import load_dotenv
+from orm_models import Candidate, Capybara, Election, User, Vote
 from sqlalchemy import create_engine, func
 from sqlalchemy.orm import sessionmaker
-
 
 load_dotenv()
 
