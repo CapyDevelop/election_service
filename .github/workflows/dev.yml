@@ -1,0 +1,71 @@
+name: Deploy Workflow
+on:
+  push:
+    branches:
+      - develop
+
+jobs:
+  style-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.x
+
+      - name: Install Dependencies
+        run: |
+          pip install flake8
+          pip install isort
+
+      - name: Run flake8
+        run: flake8 .
+
+      - name: Run isort
+        run: isort . --check --diff
+  build_and_push_to_docker_hub:
+    needs: style-check
+    name: Push Docker image to Docker Hub
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v2
+        if: ${{ github.repository == 'CapyDevelop/election_service' && github.ref == 'refs/heads/develop' }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+        if: ${{ github.repository == 'CapyDevelop/election_service' && github.ref == 'refs/heads/develop' }}
+      - name: Login to Docker
+        uses: docker/login-action@v1
+        if: ${{ github.repository == 'CapyDevelop/election_service' && github.ref == 'refs/heads/develop' }}
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Create .env_docker
+        run: |
+            echo "${{ secrets.MY_ENV_VAR }}" > .env_docker
+      - name: Push to Docker Hub
+        uses: docker/build-push-action@v2
+        if: ${{ github.repository == 'CapyDevelop/election_service' && github.ref == 'refs/heads/develop' }}
+        with:
+          context: .
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/election_service:dev
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build_and_push_to_docker_hub
+    if: github.ref == 'refs/heads/develop'
+    steps:
+      - name: executing remote ssh commands to deploy
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOST_DEVELOP }}
+          username: ${{ secrets.USER }}
+          key: ${{ secrets.PRIVATE_SSH_KEY_DEVELOP }}
+          passphrase: ${{ secrets.PASSPHRASE }}
+          script: |
+            docker pull alexseipopov/election_service:dev
+            docker-compose -f ~/capybaras/docker-compose.yml up --no-deps --build -d election_service
